@@ -3,13 +3,18 @@ using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Newtonsoft.Json.Linq;
+using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.X509;
+using Org.BouncyCastle.Security;
+
 
 namespace PassValidator.Validator;
 
 public class Validator
 {
     private const string G4WwdrCertificateSerialNumber = "13DC77955271E53DC632E8CCFFE521F3CCC5CED2";
+
+    private const string ApplePassTypeOid = "1.2.840.113635.100.6.1.16";
 
     public ValidationResult Validate(byte[] passContent)
     {
@@ -137,7 +142,7 @@ public class Validator
         zipToOpen.Close();
         if (!result.HasManifest) return result;
 
-        var contentInfo = new ContentInfo(manifestFile);
+        var contentInfo = new ContentInfo(manifestFile!);
         var signedCms = new SignedCms(contentInfo, true);
 
         signedCms.Decode(signatureFile);
@@ -155,10 +160,12 @@ public class Validator
 
         // There are two certificates attached. One is the PassType certificate. One is the WWDR certificate.
         //
-        X509Certificate2? passKitCertificate = null;
+        Org.BouncyCastle.X509.X509Certificate? passKitCertificate = null;
 
         foreach (var cert in signedCms.Certificates)
         {
+            var bcCert = DotNetUtilities.FromX509Certificate(cert);
+
             if (cert.SerialNumber == G4WwdrCertificateSerialNumber)
             {
                 result.SignedByApple = true;
@@ -168,8 +175,7 @@ public class Validator
             else
             {
                 // Find another cert issued by Apple Inc.
-                var issuerName = new X509Name(cert.Issuer);
-
+                var issuerName = bcCert.IssuerDN;
                 var issuerCommonName = issuerName.GetValueList(X509Name.CN);
                 var issuerOrganisation = issuerName.GetValueList(X509Name.O);
 
@@ -178,7 +184,7 @@ public class Validator
                     if ((string)issuerOrganisation[0] == "Apple Inc." && (string)issuerCommonName[0] ==
                         "Apple Worldwide Developer Relations Certification Authority")
                     {
-                        passKitCertificate = cert;
+                        passKitCertificate = bcCert;
                     }
                 }
             }
@@ -187,25 +193,20 @@ public class Validator
         if (passKitCertificate != null)
         {
             result.PassKitCertificateFound = true;
+            // This is an Apple custom extension (1.2.840.113635.100.6.1.16) and in good passes,
+            // the value matches the pass type identifier.
+            var extValue = passKitCertificate.GetExtensionValue(new DerObjectIdentifier(ApplePassTypeOid));
 
-            foreach (var extension in passKitCertificate.Extensions)
-            {
-                // 1.2.840.113635.100.6.1.16 is the OID of the problematic part I think.
-                // This is an Apple custom extension (1.2.840.113635.100.6.1.16) and in good passes, 
-                // the value matches the pass type identifier.
-                //
-                if (extension.Oid?.Value != "1.2.840.113635.100.6.1.16") continue;
-
-                var value = Encoding.ASCII.GetString(extension.RawData);
+            if (extValue != null) {
+                var octet = (Asn1OctetString)extValue;
+                var raw = octet.GetOctets();
+                var value = Encoding.ASCII.GetString(raw);
                 value = value.Substring(2, value.Length - 2);
-
                 result.PassKitCertificateNameCorrect = value == manifestPassTypeIdentifier;
-                break;
             }
 
-            result.PassKitCertificateExpired = passKitCertificate.NotAfter < DateTime.UtcNow;
-
-            var issuerName = new X509Name(passKitCertificate.Issuer);
+            result.PassKitCertificateExpired = passKitCertificate.NotAfter.ToUniversalTime() < DateTime.UtcNow;
+            var issuerName = passKitCertificate.IssuerDN;
             var passKitIssuerOrg = issuerName.GetValueList(X509Name.O)[0] as string;
             var passKitIssuerCommonName = issuerName.GetValueList(X509Name.CN)[0] as string;
 
@@ -217,8 +218,8 @@ public class Validator
         }
 
         // Now check the subject and type identifier match.
-        //
-        var certName = new X509Name(signer.Certificate?.Subject);
+        var bcSignerCert = DotNetUtilities.FromX509Certificate(signer.Certificate);
+        var certName = bcSignerCert.SubjectDN;
 
         var certificateCommonName = certName.GetValueList(X509Name.CN)[0] as string;
         string signaturePassTypeIdentifier;
@@ -241,8 +242,8 @@ public class Validator
             certificateOrganisationUnit = organisationUnits[0] as string;
         }
 
-        result.HasSignatureExpired = signer.Certificate.NotAfter < DateTime.UtcNow;
-        result.SignatureExpirationDate = signer.Certificate.NotAfter.ToString("yyyy-MM-dd HH:mm:ss");
+        result.HasSignatureExpired = bcSignerCert.NotAfter.ToUniversalTime() < DateTime.UtcNow;
+        result.SignatureExpirationDate = bcSignerCert.NotAfter.ToString("yyyy-MM-dd HH:mm:ss");
 
         result.PassTypeIdentifierMatches = manifestPassTypeIdentifier == signaturePassTypeIdentifier;
         result.TeamIdentifierMatches = manifestTeamIdentifier == certificateOrganisationUnit;
