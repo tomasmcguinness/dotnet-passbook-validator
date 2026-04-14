@@ -53,6 +53,7 @@ public static class ConsoleValidator
     {
         return !validationResult.HasSignatureExpired &&
                 validationResult.HasSignature &&
+                validationResult.SignatureValid &&
                 validationResult.SignedByApple;
     }
 

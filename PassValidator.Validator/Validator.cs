@@ -150,10 +150,11 @@ public class Validator
         try
         {
             signedCms.CheckSignature(true);
+            result.SignatureValid = true;
         }
         catch
         {
-            // ignored
+            result.SignatureValid = false;
         }
 
         var signer = signedCms.SignerInfos[0];

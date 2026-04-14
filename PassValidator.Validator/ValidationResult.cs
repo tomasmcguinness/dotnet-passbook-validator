@@ -18,6 +18,8 @@ public class ValidationResult
 
     public string SignatureExpirationDate { get; set; }
 
+    public bool SignatureValid { get; set; }
+
     public bool HasIcon3x { get; set; }
 
     public bool HasIcon2x { get; set; }
