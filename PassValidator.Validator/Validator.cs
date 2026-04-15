@@ -288,19 +288,26 @@ public class Validator
 
     private static DateTime? GetSigningTime(SignedCms cms)
     {
-        foreach (SignerInfo signer in cms.SignerInfos)
+        try
         {
-            foreach (CryptographicAttributeObject attr in signer.SignedAttributes)
+            foreach (SignerInfo signer in cms.SignerInfos)
             {
-                if (attr.Oid.Value == "1.2.840.113549.1.9.5")
+                foreach (CryptographicAttributeObject attr in signer.SignedAttributes)
                 {
-                    foreach (var value in attr.Values)
+                    if (attr.Oid.Value == "1.2.840.113549.1.9.5")
                     {
-                        var pkcs9 = new Pkcs9SigningTime(value.RawData);
-                        return pkcs9.SigningTime;
+                        foreach (var value in attr.Values)
+                        {
+                            var pkcs9 = new Pkcs9SigningTime(value.RawData);
+                            return pkcs9.SigningTime;
+                        }
                     }
                 }
             }
+        }
+        catch (Exception)
+        {
+            // ignored
         }
 
         return null;
