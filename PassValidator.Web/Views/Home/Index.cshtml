@@ -154,6 +154,7 @@
             <h3>Signature</h3>
             <ul>
                 <li><i data-bind="css: getStyle(hasMatchingPassTypeIdentifier())"></i>PassTypeIdentifier in signature matches value in pass.json</li>
+                <li><i data-bind="css: getStyle(hasSigningTime())"></i>Signature has signing time</li>
                 <li><i data-bind="css: getStyle(hasMatchingTeamIdentifier())"></i>TeamIdentifier in signature matches value in pass.json</li>
             </ul>
             <h3>WWDR Certificate</h3>
@@ -272,6 +273,7 @@
 
                             self.hasMatchingPassTypeIdentifier(jsonResponse.passTypeIdentifierMatches);
                             self.hasMatchingTeamIdentifier(jsonResponse.teamIdentifierMatches);
+                            self.hasSigningTime(jsonResponse.signingTime);
 
                             self.wwdrCertificateFound(jsonResponse.wwdrCertificateFound);
                             self.wwdrCertificateIsCorrectVersion(jsonResponse.wwdrCertificateIsCorrectVersion);
@@ -321,6 +323,7 @@
 
             self.hasMatchingPassTypeIdentifier = ko.observable(false);
             self.hasMatchingTeamIdentifier = ko.observable(false);
+            self.hasSigningTime = ko.observable(false);
             self.signedByApple = ko.observable(false);
 
             self.passKitCertificateFound = ko.observable(false);

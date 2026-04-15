@@ -1,6 +1,6 @@
 ﻿using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Newtonsoft.Json.Linq;
 using Org.BouncyCastle.Asn1;
@@ -157,6 +157,11 @@ public class Validator
             result.SignatureValid = false;
         }
 
+        if (result.SignatureValid)
+        {
+            result.SigningTime = GetSigningTime(signedCms);
+        }
+
         var signer = signedCms.SignerInfos[0];
 
         // There are two certificates attached. One is the PassType certificate. One is the WWDR certificate.
@@ -279,5 +284,25 @@ public class Validator
             result.Add(data.Substring(start));
         }
         return result;
+    }
+
+    private static DateTime? GetSigningTime(SignedCms cms)
+    {
+        foreach (SignerInfo signer in cms.SignerInfos)
+        {
+            foreach (CryptographicAttributeObject attr in signer.SignedAttributes)
+            {
+                if (attr.Oid.Value == "1.2.840.113549.1.9.5")
+                {
+                    foreach (var value in attr.Values)
+                    {
+                        var pkcs9 = new Pkcs9SigningTime(value.RawData);
+                        return pkcs9.SigningTime;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }
