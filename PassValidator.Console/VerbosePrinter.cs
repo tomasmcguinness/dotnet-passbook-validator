@@ -25,6 +25,7 @@ public static class VerbosePrinter
         System.Console.WriteLine($"\tSigned By Apple: {validationResult.SignedByApple}");
         System.Console.WriteLine($"\tSignature Expiration Date: {validationResult.SignatureExpirationDate}");
         System.Console.WriteLine($"\tSignature Valid: {validationResult.SignatureValid}");
+        System.Console.WriteLine($"\tSigning Time: {validationResult.SigningTime?.ToString("o") ?? "<null>"}");
         System.Console.WriteLine($"\tHas Icon 3x: {validationResult.HasIcon3x}");
         System.Console.WriteLine($"\tHas Icon 2x: {validationResult.HasIcon2x}");
         System.Console.WriteLine($"\tHas Icon 1x: {validationResult.HasIcon1x}");
